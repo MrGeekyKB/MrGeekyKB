@@ -1,0 +1,218 @@
+/*
+    This sketch demonstrates how to set up a simple HTTP-like server.
+    The server will set a GPIO pin depending on the request
+      http://server_ip/gpio/0 will set the GPIO2 low,
+      http://server_ip/gpio/1 will set the GPIO2 high
+    server_ip is the IP address of the ESP8266 module, will be
+    printed to Serial when the module is connected.
+*/
+
+#include <ESP8266WiFi.h>
+
+#ifndef STASSID
+#define STASSID "kb"
+#define STAPSK  "1234567810"
+#endif
+const int BUTTON = 12;
+//const int FAN = 1;
+//const int WATERMOTOR = 4;
+int val;
+int pushed=0;
+int lighton=0;
+
+const char* ssid = STASSID;
+const char* password = STAPSK;
+
+// Create an instance of the server
+// specify the port to listen on as an argument
+WiFiServer server(80);
+
+void setup() {
+  Serial.begin(115200);
+//FOR OR ON OFF//
+  //Serial.begin(9600);
+ pinMode(BUTTON, INPUT_PULLUP);
+ // pinMode(FAN, OUTPUT);
+ // pinMode(WATERMOTOR, OUTPUT);
+  //END IR//
+  // prepare LED
+  int WATERMOTOR=4;
+    int FAN=1;
+  pinMode(FAN, OUTPUT);
+  digitalWrite(FAN, 0);
+    pinMode(WATERMOTOR, OUTPUT);
+  digitalWrite(WATERMOTOR, 0);
+
+  // Connect to WiFi network
+  Serial.println();
+  Serial.println();
+  Serial.print(F("Connecting to "));
+  Serial.println(ssid);
+
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(F("."));
+  }
+  Serial.println();
+  Serial.println(F("WiFi connected"));
+
+  // Start the server
+  server.begin();
+  Serial.println(F("Server started"));
+
+  // Print the IP address
+  Serial.println(WiFi.localIP());
+}
+
+void loop() {
+    int FAN = 1;
+  int  WATERMOTOR = 4;
+   if (digitalRead(BUTTON) == LOW){
+  //LOOP IR ON//
+
+    val=digitalRead(BUTTON);
+  Serial.println(val);
+  if (val == HIGH && lighton==LOW)
+  {
+    pushed=1-pushed;
+    delay(100);
+    
+  } 
+  lighton=val;
+  if(pushed==HIGH)
+  {
+    Serial.println("LED ON");
+     digitalWrite(FAN, LOW);
+     digitalWrite(WATERMOTOR, LOW);
+    }
+  else{
+    Serial.println("LED OFF");
+    digitalWrite(FAN, HIGH);
+    digitalWrite(WATERMOTOR, HIGH);
+  }
+     }
+   else{
+  //LOOP IR OFF//
+  // Check if a client has connected
+  WiFiClient client = server.available();
+  if (!client) {
+    return;
+  }
+
+  Serial.println(F("new client"));
+
+  client.setTimeout(5000); // default is 1000
+
+  // Read the first line of the request
+  String req = client.readStringUntil('\r');
+  Serial.println(F("request: "));
+  Serial.println(req);
+
+  // Match the request
+  //btn1
+  int val;
+//  int FAN=1;
+  if (req.indexOf(F("FANOFF")) != -1) {
+    val = 0;
+  } else if (req.indexOf(F("FANON")) != -1) {
+    val = 1;
+  } else {
+    Serial.println(F("invalid request"));
+    val = digitalRead(FAN);
+  }
+  //btn2
+  int val2;
+//  int WATERMOTOR=4;
+  if (req.indexOf(F("WATEROFF")) != -1) {
+    val2 = 0;
+  } else if (req.indexOf(F("WATERON")) != -1) {
+    val2 = 1;
+  } else {
+    Serial.println(F("invalid request"));
+    val2 = digitalRead(WATERMOTOR);
+  }
+
+  // Set LED according to the request
+  digitalWrite(FAN, val);
+  digitalWrite(WATERMOTOR, val2);
+
+  // read/ignore the rest of the request
+  // do not client.flush(): it is for output only, see below
+  while (client.available()) {
+    // byte by byte is not very efficient
+    client.read();
+  }
+
+  // Send the response to the client
+  // it is OK for multiple small client.print/write,
+  // because nagle algorithm will group them into one single packet
+  client.print(F("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<!DOCTYPE HTML>\r\n<html>\r\n"));
+ // client.print((val) ? F("Low") : F("High"));
+   //client.print((val2) ? F("Low") : F("High"));
+    client.println("<style>\n"
+"body {\n"
+" background-image: url(\"https://img.freepik.com/free-photo/abstract-polygonal-space-low-poly-dark-background-3d-rendering_7247-223.jpg?size=626&ext=jpg\");\n"
+" background-color: #cccccc;\n"
+"background-size: cover;\n"
+"}\n"
+"h1 {color:red;}\n"
+"p {color:blue;}\n"
+"button{\n"
+"  background-color: #008CBA; /* Blue */\n"
+"  border: none;\n"
+"  color: white;\n"
+"  padding: 100px 110px;\n"
+"  text-align: center;\n"
+"  text-decoration: none;\n"
+"  display: inline-block;\n"
+"  font-size: 30px;\n"
+"box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);\n"
+"}\n"
+"\n"
+"  @keyframes glowing {\n"
+"      0% { background-color: #2ba805; box-shadow: 0 0 5px #2ba805; }\n"
+"      50% { background-color: #49e819; box-shadow: 0 0 20px #49e819; }\n"
+"      100% { background-color: #2ba805; box-shadow: 0 0 5px #2ba805; }\n"
+"      }\n"
+"      button {\n"
+"      animation: glowing 1300ms infinite;\n"
+"      }\n"
+"button2{\n"
+"  background-color: #f44336; /* Blue */\n"
+"  border: none;\n"
+"  color: white;\n"
+"  padding: 100px 110px;\n"
+"  text-align: center;\n"
+"  text-decoration: none;\n"
+"  display: inline-block;\n"
+"  font-size: 30px;\n"
+"box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);\n"
+"}\n"
+"</style>");
+client.println("<br>");
+client.println("<br>");
+client.println("<br>");
+client.println("<br>");
+client.println("<br>");
+client.println("<br>");
+client.println("<br>");
+client.println("<br>");
+client.println("<br>");
+  client.println("<center><h1><a href=\"/FANOFF\"\"><button>FAN ON</button></a>");
+    client.println("<a href=\"/FANON\"\"><button2>OFF</button2></a><br />");
+    client.println("<br>");
+    //btn2
+    client.println("<center><a href=\"/WATEROFF\"\"><button>MOTOR ON</button></a>");
+    client.println("<a href=\"/WATERON\"\"><button2>OFF</button2></a><br />");
+
+ 
+
+  // The client will actually be *flushed* then disconnected
+  // when the function returns and 'client' object is destroyed (out-of-scope)
+  // flush = ensure written data are received by the other side
+  Serial.println(F("Disconnecting from client"));
+   }
+}
